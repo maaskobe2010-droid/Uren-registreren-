@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1d4ed8">
+<title>Mijn werkuren</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#17233b;background:#f3f6f4}
+*{box-sizing:border-box}body{margin:0}header{background:#1d4ed8;color:white;padding:22px 16px 18px}
+header h1{margin:0;font-size:1.5rem}header p{margin:5px 0 0;color:#dbeafe;font-size:.95rem}
+main{max-width:760px;margin:auto;padding:14px;display:grid;gap:14px}
+.card{background:white;border-radius:16px;padding:16px;box-shadow:0 2px 10px #10251b0d}
+h2{font-size:1.1rem;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+label{display:block;font-size:.9rem;font-weight:650;margin-bottom:6px}
+input,textarea,select{width:100%;padding:12px;border:1px solid #bfdbfe;border-radius:10px;background:white;font:inherit;color:inherit}
+textarea{resize:vertical;min-height:76px}
+.field{margin-bottom:12px}.full{grid-column:1/-1}
+button{border:0;border-radius:11px;padding:12px 14px;font:inherit;font-weight:700;cursor:pointer}
+.primary{background:#2563eb;color:white;width:100%}.secondary{background:#eff6ff;color:#1e40af}.danger{background:#fff0ee;color:#9a3027}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.actions button{flex:1}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:#eff6ff;border-radius:12px;padding:13px}.stat small{display:block;color:#586a86}.stat strong{font-size:1.35rem}
+.entry{border:1px solid #dbeafe;border-radius:12px;padding:12px;margin-top:10px}
+.entrytop{display:flex;justify-content:space-between;gap:10px;align-items:start}
+.entry h3{margin:0;font-size:1rem}.muted{color:#61718a;font-size:.88rem}
+.entry p{margin:8px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.entry .actions{margin-top:10px}.entry .actions button{padding:8px;font-size:.88rem}
+.empty{color:#61718a;text-align:center;padding:18px 4px}
+.notice{font-size:.84rem;color:#61718a;line-height:1.45}
+@media(max-width:420px){.grid{grid-template-columns:1fr 1fr}.card{padding:14px}.entrytop{align-items:flex-start}}
+</style>
+</head>
+<body>
+<header><h1>🕒 Mijn werkuren</h1><p>Vul je uren snel in met de knoppen en bewaar ze met één druk.</p></header>
+<main>
+<section class="card">
+<h2 id="formTitle">Werkdag toevoegen</h2>
+<form id="workForm">
+<input type="hidden" id="editId">
+<div class="grid">
+<div class="field"><label for="date">Datum</label><input id="date" type="date" required>
+<button class="secondary" type="button" style="width:100%;margin-top:6px" onclick="setToday()">Vandaag</button></div>
+<div class="field"><label for="break">Pauze (minuten)</label><input id="break" type="number" min="0" step="15" value="30" required></div>
+<div class="field"><label for="start">Begonnen om</label><input id="start" type="time" value="08:00" required></div>
+<div class="field"><label for="end">Gestopt om</label><input id="end" type="time" value="16:30" required></div>
+<div class="field full"><label>Snel kiezen</label><div class="actions">
+<button class="secondary" type="button" onclick="setTimes('08:00','13:00')">08:00–13:00</button>
+<button class="secondary" type="button" onclick="setTimes('07:30','17:30')">07:30–17:30</button>
+<button class="secondary" type="button" onclick="setTimes('08:00','16:30')">08:00–16:30</button>
+</div></div>
+<div class="field full"><label>Waar heb je gewerkt? (vink aan)</label>
+<div class="grid">
+<label style="display:flex;align-items:center;gap:8px;font-weight:500"><input id="place1" type="checkbox" style="width:auto"> Bij de kippen</label>
+<label style="display:flex;align-items:center;gap:8px;font-weight:500"><input id="place2" type="checkbox" style="width:auto"> Bij Jaak</label>
+<label style="display:flex;align-items:center;gap:8px;font-weight:500"><input id="place3" type="checkbox" style="width:auto"> Damburg</label>
+</div></div>
+<div class="field full"><label for="description">Korte beschrijving</label><textarea id="description" maxlength="300" placeholder="Bijv. stekjes gesneden en planten verzorgd"></textarea></div>
+</div>
+<button class="primary" type="submit" id="saveBtn">Werkdag opslaan</button>
+</form>
+</section>
+<section class="card">
+<h2>Weekoverzicht</h2>
+<div class="field"><label for="week">Kies een datum in de gewenste week</label><input id="week" type="date"></div>
+<div class="stats">
+<div class="stat"><small>Totaal gewerkte uren</small><strong id="weekHours">0 u 00 min</strong></div>
+<div class="stat"><small>Aantal werkdagen</small><strong id="weekDays">0</strong></div>
+<div class="stat"><small>Bij de kippen</small><strong id="place1Hours">0 u 00 min</strong></div>
+<div class="stat"><small>Bij Jaak</small><strong id="place2Hours">0 u 00 min</strong></div>
+<div class="stat"><small>Damburg</small><strong id="place3Hours">0 u 00 min</strong></div>
+</div>
+<div class="actions" style="margin-top:12px">
+<button class="secondary" id="exportBtn" type="button">⬇ Download week als Excel</button>
+<button class="secondary" id="allExportBtn" type="button">Download alles als Excel</button>
+</div>
+<p class="notice">Gebruik de knoppen bij ‘Snel kiezen’ of vul je uren zelf in. Druk daarna op ‘Werkdag opslaan’. Begin- en einduur kunnen tot op de minuut. Pauze kun je invullen in stappen van 15 minuten. De export is een Excel-bestand met aparte tabbladen voor elke werkplek en week-, maand- en jaartotalen. Je gegevens worden op dit toestel in deze browser bewaard. Wis je browsergegevens niet als je je invoer wilt behouden.</p>
+</section>
+<section class="card">
+<h2>Maandverslag</h2>
+<div class="field"><label for="month">Kies een maand</label><input id="month" type="month"></div>
+<div class="stats">
+<div class="stat"><small>Totaal gewerkte uren</small><strong id="monthHours">0 u 00 min</strong></div>
+<div class="stat"><small>Aantal werkdagen</small><strong id="monthDays">0</strong></div>
+<div class="stat"><small>Bij de kippen</small><strong id="monthPlace1">0 u 00 min</strong></div>
+<div class="stat"><small>Bij Jaak</small><strong id="monthPlace2">0 u 00 min</strong></div>
+<div class="stat"><small>Damburg</small><strong id="monthPlace3">0 u 00 min</strong></div>
+</div>
+<button class="secondary" id="monthExportBtn" type="button" style="width:100%;margin-top:12px">⬇ Download maand als Excel</button>
+</section>
+<section class="card">
+<h2>Jaarverslag</h2>
+<div class="field"><label for="year">Kies een jaar</label><select id="year"></select></div>
+<div class="stats">
+<div class="stat"><small>Totaal gewerkte uren</small><strong id="yearHours">0 u 00 min</strong></div>
+<div class="stat"><small>Aantal werkdagen</small><strong id="yearDays">0</strong></div>
+<div class="stat"><small>Bij de kippen</small><strong id="yearPlace1">0 u 00 min</strong></div>
+<div class="stat"><small>Bij Jaak</small><strong id="yearPlace2">0 u 00 min</strong></div>
+<div class="stat"><small>Damburg</small><strong id="yearPlace3">0 u 00 min</strong></div>
+</div>
+<button class="secondary" id="yearExportBtn" type="button" style="width:100%;margin-top:12px">⬇ Download jaar als Excel</button>
+</section>
+<section class="card">
+<h2>Werkdagen van deze week</h2>
+<div id="entries"></div>
+</section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const STORAGE_KEY = 'mijnWerkurenV1';
+let records = [];
+try { records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch(e) { records = []; }
+const today = new Date();
+const localDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+$('date').value = localDate(today);
+$('week').value = localDate(today);
+$('month').value = localDate(today).slice(0,7);
+const thisYear = today.getFullYear();
+for(let y=thisYear-5;y<=thisYear+1;y++){ const opt=document.createElement('option'); opt.value=String(y); opt.textContent=String(y); if(y===thisYear) opt.selected=true; $('year').appendChild(opt); }
+window.setToday = () => { $('date').value = localDate(new Date()); };
+window.setTimes = (start,end) => { $('start').value = start; $('end').value = end; };
+function persist(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); render(); }
+function mins(t){ if(!t || !t.includes(':')) return NaN; const [h,m]=t.split(':').map(Number); return h*60+m; }
+function duration(r){
+ let a=mins(r.start), b=mins(r.end), pause=Number(r.pause)||0;
+ if(!Number.isFinite(a)||!Number.isFinite(b)||b<=a) return 0;
+ return Math.max(0,b-a-pause);
+}
+function fmt(m){ return `${Math.floor(m/60)} u ${String(m%60).padStart(2,'0')} min`; }
+function mondayOf(s){
+ const d=new Date(s+'T12:00:00'); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); return localDate(d);
+}
+function inSelectedWeek(r){ return mondayOf(r.date)===mondayOf($('week').value || localDate(today)); }
+function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function render(){
+ const selected=records.filter(inSelectedWeek).sort((a,b)=>b.date.localeCompare(a.date)||b.start.localeCompare(a.start));
+ const total=selected.reduce((sum,r)=>sum+duration(r),0);
+ $('weekHours').textContent=fmt(total);
+ $('weekDays').textContent=String(new Set(selected.map(r=>r.date)).size);
+ const placeMinutes = place => selected.reduce((sum,r)=>sum+((r.places||[]).includes(place)?duration(r):0),0);
+ $('place1Hours').textContent=fmt(placeMinutes('Bij de kippen')+placeMinutes('Werkplek 1'));
+ $('place2Hours').textContent=fmt(placeMinutes('Bij Jaak')+placeMinutes('Werkplek 2'));
+ $('place3Hours').textContent=fmt(placeMinutes('Damburg')+placeMinutes('Werkplek 3'));
+ renderLongReports();
+ if(!selected.length){$('entries').innerHTML='<div class="empty">Nog geen werkuren ingevuld voor deze week.</div>';return;}
+ $('entries').innerHTML=selected.map(r=>`<article class="entry">
+ <div class="entrytop"><div><h3>${esc(new Date(r.date+'T12:00:00').toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long',year:'numeric'}))}</h3><div class="muted">${esc(r.start)}–${esc(r.end)} · pauze ${Number(r.pause)||0} min</div><div class="muted">Werkplek: ${esc((r.places||[]).join(', ')||'Niet aangeduid')}</div></div><strong>${fmt(duration(r))}</strong></div>
+ ${r.description?`<p>${esc(r.description)}</p>`:''}
+ <div class="actions"><button class="secondary" type="button" onclick="editRecord('${r.id}')">Bewerken</button><button class="danger" type="button" onclick="deleteRecord('${r.id}')">Verwijderen</button></div>
+ </article>`).join('');
+}
+function summarize(list, prefix){
+ const total=list.reduce((sum,r)=>sum+duration(r),0);
+ $(prefix+'Hours').textContent=fmt(total);
+ $(prefix+'Days').textContent=String(new Set(list.map(r=>r.date)).size);
+ const minsFor=place=>list.reduce((sum,r)=>{
+  const ps=r.places||[];
+  const old={'Bij de kippen':'Werkplek 1','Bij Jaak':'Werkplek 2','Damburg':'Werkplek 3'}[place];
+  return sum+((ps.includes(place)||ps.includes(old))?duration(r):0);
+ },0);
+ $(prefix+'Place1').textContent=fmt(minsFor('Bij de kippen'));
+ $(prefix+'Place2').textContent=fmt(minsFor('Bij Jaak'));
+ $(prefix+'Place3').textContent=fmt(minsFor('Damburg'));
+}
+function renderLongReports(){
+ const month=$('month').value || localDate(today).slice(0,7);
+ const year=$('year').value || String(today.getFullYear());
+ summarize(records.filter(r=>r.date.startsWith(month)),'month');
+ summarize(records.filter(r=>r.date.startsWith(year+'-')),'year');
+}
+function resetForm(){ $('workForm').reset(); $('editId').value=''; $('date').value=localDate(today); $('start').value='08:00'; $('end').value='16:30'; $('break').value='30'; $('place1').checked=false; $('place2').checked=false; $('place3').checked=false; $('formTitle').textContent='Werkdag toevoegen'; $('saveBtn').textContent='Werkdag opslaan'; }
+$('workForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ const start=$('start').value,end=$('end').value,pause=Number($('break').value);
+ if(mins(end)<=mins(start)){alert('Het einduur moet later zijn dan het beginuur. Voor een nachtshift is deze eenvoudige versie niet geschikt.');return;}
+ if(pause<0 || pause>(mins(end)-mins(start))){alert('Controleer het aantal minuten pauze.');return;}
+ const id=$('editId').value || (Date.now().toString(36)+Math.random().toString(36).slice(2,7));
+ const places=[];
+ if($('place1').checked) places.push('Bij de kippen');
+ if($('place2').checked) places.push('Bij Jaak');
+ if($('place3').checked) places.push('Damburg');
+ const record={id,date:$('date').value,start,end,pause,places,description:$('description').value.trim()};
+ const index=records.findIndex(r=>r.id===id);
+ if(index>=0) records[index]=record; else records.push(record);
+ $('week').value=record.date; persist(); resetForm();
+});
+window.editRecord=id=>{
+ const r=records.find(x=>x.id===id);if(!r)return;
+ $('editId').value=r.id;$('date').value=r.date;$('start').value=r.start;$('end').value=r.end;$('break').value=r.pause;$('description').value=r.description||''; const ps=r.places||[]; $('place1').checked=ps.includes('Bij de kippen')||ps.includes('Werkplek 1'); $('place2').checked=ps.includes('Bij Jaak')||ps.includes('Werkplek 2'); $('place3').checked=ps.includes('Damburg')||ps.includes('Werkplek 3');
+ $('formTitle').textContent='Werkdag bewerken';$('saveBtn').textContent='Wijzigingen opslaan';
+ window.scrollTo({top:0,behavior:'smooth'});
+};
+window.deleteRecord=id=>{if(confirm('Deze werkdag verwijderen?')){records=records.filter(r=>r.id!==id);persist();}};
+$('week').addEventListener('change',render);
+$('month').addEventListener('change',render);
+$('year').addEventListener('change',render);
+$('monthExportBtn').addEventListener('click',()=>{
+ const month=$('month').value;
+ const list=records.filter(r=>r.date.startsWith(month));
+ if(!list.length){alert('Er staan nog geen werkuren in deze maand.');return;}
+ exportExcel(list,`werkuren-maand-${month}.xlsx`);
+});
+$('yearExportBtn').addEventListener('click',()=>{
+ const year=$('year').value;
+ const list=records.filter(r=>r.date.startsWith(year+'-'));
+ if(!list.length){alert('Er staan nog geen werkuren in dit jaar.');return;}
+ exportExcel(list,`werkuren-jaar-${year}.xlsx`);
+});
+function normalizePlace(p){return ({'Werkplek 1':'Bij de kippen','Werkplek 2':'Bij Jaak','Werkplek 3':'Damburg'}[p]||p);}
+function hoursDecimal(m){return Math.round(m/60*100)/100;}
+function makeRows(list){
+ return list.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start)).map(r=>({
+  'Datum':r.date,'Begonnen om':r.start,'Gestopt om':r.end,'Pauze (minuten)':Number(r.pause)||0,
+  'Gewerkte uren':hoursDecimal(duration(r)),'Gewerkte tijd':fmt(duration(r)),
+  'Werkplek(ken)':(r.places||[]).map(normalizePlace).join(', '),'Beschrijving':r.description||''
+ }));
+}
+function sumFor(list,place){return list.reduce((sum,r)=>sum+(((r.places||[]).map(normalizePlace).includes(place))?duration(r):0),0);}
+function exportExcel(list,name){
+ if(typeof XLSX==='undefined'){
+  alert('Excel-export vraagt internet. Verbind je gsm met internet en probeer opnieuw.');
+  return;
+ }
+ const wb=XLSX.utils.book_new();
+ const places=['Bij de kippen','Bij Jaak','Damburg'];
+ const overview=[
+  {'Werkplek':'Bij de kippen','Totaal uren':hoursDecimal(sumFor(list,'Bij de kippen')),'Totaal gewerkte tijd':fmt(sumFor(list,'Bij de kippen')),'Werkdagen':new Set(list.filter(r=>(r.places||[]).map(normalizePlace).includes('Bij de kippen')).map(r=>r.date)).size},
+  {'Werkplek':'Bij Jaak','Totaal uren':hoursDecimal(sumFor(list,'Bij Jaak')),'Totaal gewerkte tijd':fmt(sumFor(list,'Bij Jaak')),'Werkdagen':new Set(list.filter(r=>(r.places||[]).map(normalizePlace).includes('Bij Jaak')).map(r=>r.date)).size},
+  {'Werkplek':'Damburg','Totaal uren':hoursDecimal(sumFor(list,'Damburg')),'Totaal gewerkte tijd':fmt(sumFor(list,'Damburg')),'Werkdagen':new Set(list.filter(r=>(r.places||[]).map(normalizePlace).includes('Damburg')).map(r=>r.date)).size}
+ ];
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(overview),'Overzicht');
+ for(const place of places){
+  const rows=makeRows(list.filter(r=>(r.places||[]).map(normalizePlace).includes(place)));
+  const sh=XLSX.utils.json_to_sheet(rows.length?rows:[{'Datum':'','Begonnen om':'','Gestopt om':'','Pauze (minuten)':'','Gewerkte uren':'','Gewerkte tijd':'','Werkplek(ken)':place,'Beschrijving':'Nog geen uren voor deze werkplek'}]);
+  XLSX.utils.book_append_sheet(wb,sh,place);
+ }
+ const reportRows=[];
+ const allDates=[...new Set(list.map(r=>r.date))].sort();
+ for(const date of allDates){
+  const day=list.filter(r=>r.date===date);
+  const row={'Datum':date,'Totaal uren (registraties)':hoursDecimal(day.reduce((s,r)=>s+duration(r),0))};
+  for(const place of places) row['Uren - '+place]=hoursDecimal(sumFor(day,place));
+  row['Werkplek(ken)']=[...new Set(day.flatMap(r=>(r.places||[]).map(normalizePlace)))].join(', ');
+  reportRows.push(row);
+ }
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(reportRows.length?reportRows:[{'Info':'Geen geregistreerde werkdagen'}]),'Per dag');
+ const byMonth={};
+ for(const r of list){const key=r.date.slice(0,7);(byMonth[key] ||= []).push(r);}
+ const monthRows=Object.keys(byMonth).sort().map(month=>{
+  const group=byMonth[month];const row={'Maand':month};
+  for(const place of places)row['Uren - '+place]=hoursDecimal(sumFor(group,place));
+  row['Totaal uren (registraties)']=hoursDecimal(group.reduce((s,r)=>s+duration(r),0));
+  return row;
+ });
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(monthRows.length?monthRows:[{'Info':'Geen maandgegevens'}]),'Maandoverzicht');
+ const byYear={};
+ for(const r of list){const key=r.date.slice(0,4);(byYear[key] ||= []).push(r);}
+ const yearRows=Object.keys(byYear).sort().map(year=>{
+  const group=byYear[year];const row={'Jaar':year};
+  for(const place of places)row['Uren - '+place]=hoursDecimal(sumFor(group,place));
+  row['Totaal uren (registraties)']=hoursDecimal(group.reduce((s,r)=>s+duration(r),0));
+  return row;
+ });
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(yearRows.length?yearRows:[{'Info':'Geen jaargegevens'}]),'Jaaroverzicht');
+ for(const sh of wb.SheetNames){
+  const sheet=wb.Sheets[sh];
+  const range=XLSX.utils.decode_range(sheet['!ref']||'A1:A1');
+  sheet['!cols']=Array.from({length:range.e.c+1},(_,i)=>({wch:i===0?18:Math.min(36,Math.max(16, String((XLSX.utils.sheet_to_json(sheet,{header:1})[0]||[])[i]||'').length+4))}));
+  sheet['!autofilter']={ref:sheet['!ref']||'A1:A1'};
+ }
+ XLSX.writeFile(wb,name);
+}
+$('exportBtn').addEventListener('click',()=>{
+ const list=records.filter(inSelectedWeek);if(!list.length){alert('Er staan nog geen werkuren in deze week.');return;}
+ exportExcel(list,`werkuren-week-${mondayOf($('week').value)}.xlsx`);
+});
+$('allExportBtn').addEventListener('click',()=>{
+ if(!records.length){alert('Er staan nog geen werkuren opgeslagen.');return;}
+ exportExcel([...records],'mijn-werkuren-alles.xlsx');
+});
+render();
+</script>
+</body>
+</html>
